@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>极限躲避 - 你永远过不了第二关</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; color: white; touch-action: none; }
+        canvas { display: block; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <button onclick="location.href='index.html'" class="fixed top-5 left-5 z-10 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-xs">← 返回大厅</button>
+    <div class="fixed top-5 right-5 text-right pointer-events-none">
+        <h1 class="text-3xl font-black italic">LEVEL <span id="lvl" class="text-cyan-400">1</span></h1>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let level = 1, frame = 0;
+        const player = { x: 400, y: 500, w: 20, h: 20, speed: 6 };
+        const keys = {};
+        const bullets = [];
+        const isDev = localStorage.getItem('devMode') === 'true';
+
+        function init() {
+            canvas.width = 800; canvas.height = 600;
+            const scale = Math.min(window.innerWidth/800, window.innerHeight/600);
+            canvas.style.width = (800 * scale) + 'px';
+            canvas.style.height = (600 * scale) + 'px';
+        }
+
+        function spawnBullet() {
+            if (level === 1) {
+                bullets.push({ x: Math.random() * 800, y: -20, vy: 5 + Math.random()*3, vx: 0 });
+            } else {
+                // 第二关：追踪弹
+                bullets.push({ x: Math.random() * 800, y: -20, type: 'homing' });
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, 800, 600);
+            frame++;
+            if (frame % 20 === 0) spawnBullet();
+
+            // 移动
+            if (keys['w']) player.y -= player.speed; if (keys['s']) player.y += player.speed;
+            if (keys['a']) player.x -= player.speed; if (keys['d']) player.x += player.speed;
+            player.x = Math.max(0, Math.min(780, player.x));
+            player.y = Math.max(0, Math.min(580, player.y));
+
+            // 子弹逻辑
+            ctx.fillStyle = '#f43f5e';
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                if (b.type === 'homing') {
+                    const angle = Math.atan2(player.y - b.y, player.x - b.x);
+                    b.x += Math.cos(angle) * 5; b.y += Math.sin(angle) * 5;
+                } else {
+                    b.y += b.vy;
+                }
+                
+                ctx.fillRect(b.x, b.y, 10, 10);
+
+                // 碰撞
+                if (player.x < b.x + 10 && player.x + player.w > b.x && player.y < b.y + 10 && player.y + player.h > b.y) {
+                    if (!isDev) {
+                        alert("被击中了！这就是第二关。");
+                        location.reload(); return;
+                    }
+                }
+                if (b.y > 600) bullets.splice(i, 1);
+            }
+
+            // 过关逻辑：坚持30秒进入第二关
+            if (frame > 1000 && level === 1) {
+                level = 2; frame = 0; bullets.length = 0;
+                document.getElementById('lvl').innerText = "2";
+                alert("进入第二关：它们现在会追踪你了。");
+            }
+
+            ctx.fillStyle = isDev ? '#fbbf24' : '#22d3ee';
+            ctx.fillRect(player.x, player.y, player.w, player.h);
+            requestAnimationFrame(draw);
+        }
+
+        window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        window.onresize = init; init(); draw();
+    </script>
+</body>
+</html>
